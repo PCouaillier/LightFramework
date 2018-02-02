@@ -1,14 +1,16 @@
+import Framework from "./framework";
+
 export default class Injector {
-    private injector: {[key: string]: (Framework)=>any};
+    private injector: {[key: string]: (f: Framework)=>any};
     constructor() {
         this.injector = {};
     }
 
-    addService<T>(name: string, callback: (Framework)=>T) {
+    addService<T>(name: string, callback: (f: Framework)=>T) {
         this.injector[name] = callback;
     }
 
-    addScoped<T>(name: string, callback: (Framework)=>T) {
+    addScoped<T>(name: string, callback: (f: Framework)=>T) {
         this.injector[name] = (env) => {
             const a = callback(env);
             this.injector[name] = () => a;
@@ -20,7 +22,7 @@ export default class Injector {
         this.injector[name.toUpperCase()] = () => value;
     }
 
-    inject<T>(name: string): (Framework)=>T {
+    inject<T>(name: string): (f: Framework)=>T {
         return this.injector[name];
     }
 }

@@ -15,11 +15,11 @@ export default class Framework {
         this._parentScope = null;
     }
 
-    addService(name: string, callback: (...any)=>any) {
+    addService(name: string, callback: (f: Framework)=>any) {
         this._injector.addService(name, callback)
     }
 
-    addScoped(name: string, callback: (...any)=>any) {
+    addScoped(name: string, callback: (f: Framework)=>any) {
         this._scopeInjector.addScoped(name, callback)
     }
 
@@ -27,17 +27,17 @@ export default class Framework {
         this._injector.addConst(name, constValue);
     }
 
-    inject(name: string) {
+    inject(name: string): any {
         return Framework.or(
             Framework.or(
                 Framework.nullMap(this._scopeInjector.inject(name), a=>a(this)),
                 Framework.nullMap(this._parentScope, a=>a._inject(name, this))
             ),
-            this._injector.inject(name)(this),
+            this._injector.inject(name)(this)
         );
     }
 
-    _inject(name: string, originScope: Framework) {
+    _inject(name: string, originScope: Framework): any|null|undefined {
         return Framework.or(
             Framework.nullMap(Framework.nullMap(this._scopeInjector, a=>a.inject(name)), a=>a(originScope)),
             Framework.nullMap(Framework.nullMap(this._parentScope, a=>a._inject(name, originScope)), a=>a(originScope))
@@ -64,7 +64,7 @@ export default class Framework {
      * @param func
      * @returns {*}
      */
-    cla(injects: string[], func: object|Function): any {
+    cla(injects: string[], func: Function): any {
         this._currentElem = Promise.resolve(Reflect.construct(func, injects.map(a => this.inject(a))));
         return this._currentElem;
     }
@@ -75,8 +75,8 @@ export default class Framework {
      * @param func
      * @returns {*}
      */
-    classWait(injects: string[], func: object|Function): any {
-        let promisesIds = [];
+    classWait(injects: string[], func: Function): any {
+        let promisesIds: number[] = [];
         let promises = [];
 
         for (let i = injects.length - 1; 0 <= i; i--) {
@@ -99,7 +99,7 @@ export default class Framework {
         return this._currentElem;
     }
 
-    static setView(element: HTMLElement, toBindElem): any {
+    static setView(element: HTMLElement, toBindElem: Node): any {
         for (let i = element.children.length - 1; 0 <= i; i--) {
             element.removeChild(element.firstElementChild);
         }
@@ -127,13 +127,13 @@ export default class Framework {
      * addController(
      *      ['d1', 'd2', 'd3'],
      *      { view: 'MyView', name: 'ForcedName' },
-     *      class NotDefiniveName {
+     *      class NotDefinitiveName {
      *          ...
      *
      * addController(
      *      { view: 'MyView', name: 'ForcedName' },
      *      ['d1', 'd2', 'd3'],
-     *      class NotDefiniveName {
+     *      class NotDefinitiveName {
      *          ...
      *
      * addController(
@@ -147,13 +147,13 @@ export default class Framework {
      */
     addController(arg1: string[]|ControllerOptions|Function|ObjectConstructor, arg2?: string[]|ControllerOptions|Function|ObjectConstructor, arg3?: ObjectConstructor) {
         if (arg3 !== undefined) {
-            let options;
+            let options: ControllerOptions;
             if (arg1 instanceof Array) {
-                options = arg2;
+                options = arg2 as ControllerOptions;
                 options.dependencies = arg1;
             } else {
-                options = arg1;
-                options.dependencies = arg2;
+                options = arg1 as ControllerOptions;
+                options.dependencies = arg2 as string[];
             }
             this._addController_fallback(arg3, options);
         } else if (arg2 !== undefined) {
