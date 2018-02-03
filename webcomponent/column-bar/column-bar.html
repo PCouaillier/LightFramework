@@ -1,0 +1,182 @@
+<template id="column-template">
+    <div class="column" style="text-align:center;">
+        <div class="column-bar-percent">
+            <span class="percentage">
+            </span>
+            <div class="inner-column"></div>
+        </div>
+        <div class="legend"></div>
+    </div>
+    <style>
+        .column {
+            height: 27mm;
+            width: 100px;
+            position: relative;
+            padding-top: 30px;
+            display: inline-block; }
+            .column > .legend {
+                width: 100px;
+                text-align: center;
+                display: inline-block;
+                margin-bottom: 2mm;
+                font-family: Arial, serif;
+                font-size: 9.1px;
+                color: #464646;
+                font-weight: normal;
+                font-style: normal;
+                text-decoration: none; }
+            .column .percentage {
+                width: 100%;
+                text-align: center;
+                display: inline-block;
+                position: absolute;
+                margin-top: -5.7mm;
+                margin-right: 0;
+                margin-left: -12.9mm;
+                font-weight: bold;
+                font-size: 5mm; }
+            .column .percentage.green {
+                color: #ABB31F; }
+            .column .percentage.orange {
+                color: #FFAF00; }
+            .column .percentage.red {
+                color: #FF7900; }
+            .column .column-bar-percent {
+                margin-left: auto;
+                margin-right: auto;
+                width: 60px;
+                height: 16mm;
+                margin-left: 20px;
+                background-color: #F1F0F2;
+                padding: -1px; }
+                .column .column-bar-percent > .inner-column {
+                    height: 100%;
+                    margin: 0;
+                    padding: 0; }
+                    .column .column-bar-percent > .inner-column.blueviolet {
+                        background-color: blueviolet; }
+                    .column .column-bar-percent > .inner-column.gray {
+                        background-color: gray; }
+                    .column .column-bar-percent > .inner-column.green {
+                        background-color: #ABB31F; }
+                    .column .column-bar-percent > .inner-column.orange {
+                        background-color: #FFAF00; }
+                    .column .column-bar-percent > .inner-column.red {
+                        background-color: #FF7900; }
+    </style>
+</template>
+
+<script type="text/javascript">
+    class ColumnBar extends HTMLElement {
+
+        /**
+         * @return string[]
+         */
+        static get observedAttributes() {
+            return [
+                'data-percent', 'percent',
+                'data-legend', 'legend',
+                'data-color', 'color'
+            ];
+        }
+
+        constructor() {
+            super();
+            this._percent = this.getAttribute('data-percent');
+            this._legend = this.getAttribute('data-legend');
+            this._color = this.getAttribute('data-color');
+            this.attachShadow({mode:'open'});
+            this.shadowRoot.appendChild(document.importNode(document.getElementById('column-template').content, true));
+            let elem = this.shadowRoot.querySelector('.column-bar-percent');
+            elem.style.paddingTop = 15 - (0.15 * this._percent) + 'mm';
+            elem.style.height = 1 + (0.15 * this._percent) + 'mm';
+        }
+
+        /**
+         *
+         * @param name
+         * @param oldValue
+         * @param newValue
+         */
+        attributeChangedCallback(name, oldValue, newValue) {
+            switch(name) {
+                case 'data-percent':
+                case 'percent':
+                    this._percent = parseInt(newValue);
+                    this.shadowRoot.querySelector('.percentage').innerText = this._percent + '%';
+                    break;
+                case 'data-legend':
+                case 'legend':
+                    this._legend = newValue;
+                    this.shadowRoot.querySelector('.legend').innerText = this._legend;
+                    break;
+                case 'data-color':
+                case 'color':
+                    this._color = newValue;
+                    if (oldValue && oldValue!=='') {
+                        let ls = this.shadowRoot.querySelectorAll('.'+oldValue);
+                        for (let i=ls.length ; 0 < i;) {
+                            ls[--i].classList.remove(oldValue);
+                        }
+                    }
+                    let e = this.shadowRoot.querySelector('.inner-column');
+                    e.style.removeProperty('background-color');
+                    if (newValue) {
+                        if (newValue[0]==='#') {
+                            e.style.setProperty('background-color', newValue);
+                        } else {
+                            e.classList.add(newValue);
+                        }
+                        e = this.shadowRoot.querySelector('.percentage');
+                        e.style.removeProperty('color');
+                        if (newValue[0] === '#') {
+                            e.style.setProperty('color', newValue);
+                        } else {
+                            e.classList.add(newValue);
+                        }
+                    }
+                    break;
+            }
+            this._updateRendering();
+        }
+
+        connectedCallback() {
+            this._updateRendering();
+        }
+
+        get percent() {
+            return this._percent;
+        }
+        set percent(v) {
+            this.setAttribute('data-percent', v);
+            this._updateRendering();
+        }
+        get legend() {
+            return this._legend;
+        }
+        set legend(v) {
+            this.setAttribute('data-legend', v);
+        }
+        get color() {
+            return this._color;
+        }
+        set color(v) {
+            this._color = v;
+            this.setAttribute('data-color', v);
+        }
+
+        _updateRendering() {
+            let elem = this.shadowRoot.querySelector('.column-bar-percent');
+            elem.style.paddingTop = 15 - (0.15 * this._percent) + 'mm';
+            elem.style.height = 1 + (0.15 * this._percent) + 'mm';
+        }
+
+        initComponent() {
+            Object.keys(this.dataset).forEach(propName => {
+               let value = this.dataset[propName];
+               this.attributeChangedCallback('data-'+propName, null, value);
+            });
+        }
+    }
+    customElements.define('column-bar', ColumnBar);
+</script>

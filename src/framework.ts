@@ -1,10 +1,12 @@
-import Injector from "./injector";
+import Injector from 'injector';
 
-export default class Framework {
+type InjectLambda<T> = (framework: Framework) => T;
+
+export class Framework {
     private _injector: Injector;
     private _scopeInjector: Injector;
     private _currentElem: Promise<any>;
-    private _controllers: {[key: string]: {dependencies: string[], controller: object|Function, view: any}};
+    private _controllers: {[name: string]: ControllerInformation};
     private _parentScope: Framework|null;
 
     constructor() {
@@ -13,6 +15,10 @@ export default class Framework {
         this._currentElem = Promise.resolve();
         this._controllers = {};
         this._parentScope = null;
+    }
+
+    get controllers(): {[name: string]: ControllerInformation} {
+        return this._controllers;
     }
 
     addService(name: string, callback: (f: Framework)=>any) {
@@ -27,21 +33,21 @@ export default class Framework {
         this._injector.addConst(name, constValue);
     }
 
-    inject(name: string): any {
+    inject<T>(name: string): T|null|undefined {
         return Framework.or(
             Framework.or(
-                Framework.nullMap(this._scopeInjector.inject(name), a=>a(this)),
-                Framework.nullMap(this._parentScope, a=>a._inject(name, this))
+                Framework.nullMap<InjectLambda<T>, T>(this._scopeInjector.inject<T>(name), (injectLambda: InjectLambda<T>) => injectLambda(this)),
+                Framework.nullMap<Framework, T|null|undefined>(this._parentScope, (framework: Framework)=>framework._inject<T>(name, this))
             ),
-            this._injector.inject(name)(this)
+            this._injector.inject<T>(name)(this)
         );
     }
 
-    _inject(name: string, originScope: Framework): any|null|undefined {
+    _inject<T>(name: string, originScope: Framework): T|null|undefined {
         return Framework.or(
-            Framework.nullMap(Framework.nullMap(this._scopeInjector, a=>a.inject(name)), a=>a(originScope)),
-            Framework.nullMap(Framework.nullMap(this._parentScope, a=>a._inject(name, originScope)), a=>a(originScope))
-        )
+            Framework.nullMap(Framework.nullMap(this._scopeInjector, a=>a.inject(name)), (injectLambda: InjectLambda<T>)=>injectLambda(originScope)),
+            Framework.nullMap(Framework.nullMap(this._parentScope, a=>a._inject(name, originScope)), (injectLambda: InjectLambda<T>)=>injectLambda(originScope))
+        );
     }
 
     /**
@@ -64,29 +70,28 @@ export default class Framework {
      * @param func
      * @returns {*}
      */
-    cla(injects: string[], func: Function): any {
+    cla(injects: string[], func: Function): Promise<any> {
         this._currentElem = Promise.resolve(Reflect.construct(func, injects.map(a => this.inject(a))));
         return this._currentElem;
     }
 
     /**
      * used to instantiate a new class only one all its dependencies has been loaded
-     * @param injects
+     * @param paramInjects string[]
      * @param func
      * @returns {*}
      */
-    classWait(injects: string[], func: Function): any {
+    classWait<T>(paramInjects: string[], func: Function): Promise<T> {
         let promisesIds: number[] = [];
-        let promises = [];
-
-        for (let i = injects.length - 1; 0 <= i; i--) {
-            let elem = this.inject(injects[i]);
-            injects[i] = elem;
+        let promises: Promise<any>[] = [];
+        let injects: any[] = paramInjects.map((elemName, i) => {
+            let elem = this.inject(elemName);
             if (elem instanceof Promise) {
                 promisesIds.push(i);
                 promises.push(elem);
             }
-        }
+            return elem;
+        });
 
         this._currentElem = Promise.all(promises)
             .then(res => {
@@ -101,19 +106,22 @@ export default class Framework {
 
     static setView(element: HTMLElement, toBindElem: Node): any {
         for (let i = element.children.length - 1; 0 <= i; i--) {
-            element.removeChild(element.firstElementChild);
+            if (element.firstElementChild !== null) {
+                element.removeChild(element.firstElementChild);
+            }
         }
         element.appendChild(toBindElem);
-    };
+    }
 
     static isUndef (a: any): boolean {
         return a === undefined || a === null;
     }
+
     static or<T, U> (val: T, orVal: U): T|U {
         return Framework.isUndef(val) ? orVal : val ;
     }
 
-    static nullMap<T, U>(val: T, map: (a: T)=>U): U|null|undefined {
+    static nullMap<T, U>(val: T|null|undefined, map: (a: T)=>U): U|null|undefined {
         if (val === undefined)  return undefined;
         if (val === null)       return null;
         return map(val);
@@ -139,7 +147,6 @@ export default class Framework {
      * addController(
      *      class MyControllerName {
      *          ...
-     *
      *
      * @param arg1 class|Array|Object
      * @param arg2 class|Array|Object|undefined
@@ -184,12 +191,20 @@ export default class Framework {
     }
 }
 
-function getClassName(classConstructor: any): string {
-    return /^(class|function) ?([0-9a-zA-Z_]*)/.exec(classConstructor.toString())[2];
+function getClassName(classConstructor: Function): string {
+    return (/^(class|function) ?([0-9a-zA-Z_]*)/.exec(classConstructor.toString()) as string[])[2];
 }
 
-interface ControllerOptions {
+export interface ControllerInformation {
+    dependencies: string[],
+    controller: Function,
+    view: any
+}
+
+export interface ControllerOptions {
     dependencies?: string[],
     name?: string,
     view?: any
 }
+
+export const Root = new Framework();

@@ -10,7 +10,8 @@
     "target": "es5",
     "sourceMap": true,
     "rootDir": "src",
-    "outFile": "build/compiled.js"
+    "outFile": "build/compiled.js",
+    "strictNullChecks": true
   },
   "exclude": [
     "node_modules",

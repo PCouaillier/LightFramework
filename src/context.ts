@@ -5,7 +5,9 @@ export default class Context {
     private doc: Document;
 
     constructor() {
-        this.doc = (document.currentScript || document._currentScript).ownerDocument;
+        let a = (document.currentScript || document._currentScript);
+        if (a === null || a === undefined) throw 'error: currentScript unavailable.';
+        this.doc = a.ownerDocument;
     }
 
     import(id: string) {
