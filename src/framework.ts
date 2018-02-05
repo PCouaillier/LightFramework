@@ -1,6 +1,69 @@
 import Injector from 'injector';
 
 type InjectLambda<T> = (framework: Framework) => T;
+declare global {
+
+    type ReduceCallback<T> = (previousValue: T, currentValue: T, currentIndex: number, array: T[]) => T;
+    type ReduceCallbackWithInit<T, U> = (previousValue: T, currentValue: T, currentIndex: number, initValue: U) => U;
+    type MapCallback<T, U> = (value: T, index: number, array: T[]) => U;
+
+    interface ExtendFromArray<T> {
+        /**
+         * Calls a defined callback function on each element of an array, and returns an array that contains the results.
+         * @param callbackfn A function that accepts up to three arguments. The map method calls the callbackfn function one time for each element in the array.
+         */
+        map<U>(callbackfn: (value: T, index: number, array: T[]) => U): U[];
+
+        /**
+         * Returns the elements of an array that meet the condition specified in a callback function.
+         * @param callbackfn A function that accepts up to three arguments. The filter method calls the callbackfn function one time for each element in the array.
+         */
+        filter<S extends T>(callbackfn: (value: T, index: number, array: T[]) => value is S): S[];
+
+        /**
+         * Returns the elements of an array that meet the condition specified in a callback function.
+         * @param callbackfn A function that accepts up to three arguments. The filter method calls the callbackfn function one time for each element in the array.
+         */
+        filter(callbackfn: (value: T, index: number, array: T[]) => any): T[];
+
+        /**
+         * Calls the specified callback function for all the elements in an array. The return value of the callback function is the accumulated result, and is provided as an argument in the next call to the callback function.
+         * @param callbackfn A function that accepts up to four arguments. The reduce method calls the callbackfn function one time for each element in the array.
+         * @param initialValue If initialValue is specified, it is used as the initial value to start the accumulation. The first call to the callbackfn function provides this value as an argument instead of an array value.
+         */
+        reduce(callbackfn: (previousValue: T, currentValue: T, currentIndex: number, array: T[]) => T, initialValue: T): T;
+
+        /**
+         * Calls the specified callback function for all the elements in an array. The return value of the callback function is the accumulated result, and is provided as an argument in the next call to the callback function.
+         * @param callbackfn A function that accepts up to four arguments. The reduce method calls the callbackfn function one time for each element in the array.
+         * @param initialValue If initialValue is specified, it is used as the initial value to start the accumulation. The first call to the callbackfn function provides this value as an argument instead of an array value.
+         */
+        reduce<U>(callbackfn: (previousValue: U, currentValue: T, currentIndex: number, array: T[]) => U, initialValue: U): U;
+    }
+
+    interface MyFuncArray<T> {
+        mapReduce<U, V>(map: MapCallback<T, U>, reduce: ReduceCallback<U>, filter: (arg: U) => boolean, initialVal: V): V;
+        mapReduce<U, V>(map: MapCallback<T, U>, reduce: ReduceCallbackWithInit<U, V>, filter: (arg: U) => boolean, initialVal: V): V;
+
+        mapReduce<U, V>(map: MapCallback<T, U>, reduce: ReduceCallback<U>, initialVal: V): V;
+        mapReduce<U, V>(map: MapCallback<T, U>, reduce: ReduceCallbackWithInit<U, V>, initialVal: V): V;
+
+        mapFilter<U>(map: MapCallback<T, U>, filter: (val: U) => boolean): U[];
+        filterMap<U>(map: MapCallback<T, U>, filter: (val: T) => boolean): U[];
+    }
+
+    interface Array<T> extends MyFuncArray<T>
+        {  }
+
+    interface HTMLCollection extends MyFuncArray<Node>, ExtendFromArray<Node>
+        {  }
+
+    interface NodeList extends MyFuncArray<Node>, ExtendFromArray<Node>
+        {  }
+
+    interface NodeListOf<TNode extends Node> extends MyFuncArray<TNode>, ExtendFromArray<TNode>
+        {  }
+}
 
 export class Framework {
     private _injector: Injector;
@@ -189,10 +252,87 @@ export class Framework {
             view: options.view
         };
     }
+
+    /**
+     *
+     * @param {NodeSelector} document
+     */
+    initControllers(document: NodeSelector) {
+        const getParentController: (element: HTMLElement) => HTMLElement|null = (element: HTMLElement) => {
+            if (element.getAttribute('data-controller') !== null) {
+                return element;
+            } else if (element.parentElement !== null) {
+                return getParentController(element.parentElement)
+            } else {
+                return null;
+            }
+        };
+
+        let controllers = (document.querySelectorAll('[data-controller]') as NodeListOf<HTMLElement>)
+            .map((controller: HTMLElement) => {
+                let controllerIsComponent = 'data-is' in controller.dataset;
+                let componentsInside = controller.querySelectorAll('[data-is]');
+                let associatedControllers = componentsInside.map(a => ({
+                    element: a,
+                    controller: getParentController(a as HTMLElement)
+                }));
+                let ownedComponents = associatedControllers.filterMap(a => a.element, a => a.controller === controller);
+                return {
+                    controller: controller,
+                    components: controllerIsComponent ? [controller] : ownedComponents,
+                    priority: controllerIsComponent ? 0 : associatedControllers.length - ownedComponents.length
+                };
+            });
+
+        let createdControllers: {element: HTMLElement, components: HTMLElement[] }[] = [];
+
+        for (let i = controllers.length;0<i;--i) {
+            let controller = controllers.reduce((acc, val)=> acc === null || acc === undefined || acc.priority < val.priority ? val : acc);
+            let createdController = this._initController(controller.controller.getAttribute('data-is') as string, controller.controller, controller.components as HTMLElement[]);
+            createdControllers.push(createdController);
+        }
+
+        for (let i = createdControllers.length;0<i;) {
+            let controller = createdControllers[--i];
+            let controllerInformation = this._controllers[controller.element.getAttribute('data-controller') as string];
+            // create a controller and give it a new scope for each "scope" dependency
+            Reflect.construct(  controllerInformation.controller,
+                                controllerInformation.dependencies
+                                        .map(a => a === 'Framework' || a === 'scope' ?
+                                                        this.newScope() :
+                                                        (
+                                                            a === 'components' ?
+                                                                controller.components :
+                                                                this.inject(a)
+                                                        )
+                                        )
+            );
+        }
+    }
+
+    _initController(controllerName: string, controllerElement: HTMLElement, components: HTMLElement[]): { element: HTMLElement, components: HTMLElement[] } {
+        let newComponents: HTMLElement[] = components.map(element => {
+            let values = element.dataset;
+            if (values.is) {
+                let newElement = document.createElement(values.is as string);
+                Object.keys(values).forEach(property => {
+                    newElement.setAttribute('data-'+property, values[property] as string);
+                });
+                if (element.parentElement) {
+                    element.parentElement.insertBefore(newElement, element);
+                    element.parentElement.removeChild(element);
+                }
+                return newElement;
+            }
+            // fallback value (dead code) to satisfy compiler
+            return element;
+        });
+        return {element: controllerElement, components: newComponents };
+    }
 }
 
 function getClassName(classConstructor: Function): string {
-    return (/^(class|function) ?([0-9a-zA-Z_]*)/.exec(classConstructor.toString()) as string[])[2];
+    return ((/^(class|function) ?([0-9a-zA-Z_]*)/).exec(classConstructor.toString()) as string[])[2];
 }
 
 export interface ControllerInformation {

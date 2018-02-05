@@ -102,3 +102,30 @@ f.addScoped('scope', () => new Promise(resolve => {
         }
     );
 })();
+
+/*
+df = new DocumentFragment();
+div = document.createElement('div');
+div.setAttribute('data-controller', 'c0');
+div.setAttribute('data-is', 'i00');
+df.appendChild(div);
+
+div = document.createElement('div');
+div.setAttribute('data-controller', 'c1');
+div2 = document.createElement('div');
+div2.setAttribute('data-is', 'i10');
+div.appendChild(div2);
+df.appendChild(div);
+
+div = document.createElement('div');
+div.setAttribute('data-controller', 'c2');
+div2 = document.createElement('div');
+div2.setAttribute('data-controller', 'c20');
+div3 = document.createElement('div');
+div3.setAttribute('data-is', 'i200');
+div2.appendChild(div3);
+div.appendChild(div2);
+df.appendChild(div);
+
+f.initControllers(df);
+*/
