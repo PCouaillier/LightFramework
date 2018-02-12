@@ -1,5 +1,21 @@
 # LightFramework
 
+## Installation
+
+### Installation via npm :
+
+Download and build the project
+
+    git clone {PROJECT_NAME}
+    cd {PROJECT_NAME}
+    npm i
+
+Get the file `compiled.js` (require `amd` or `dependencies-before.js` and `dependencies-after.js`)
+
+### run tests : 
+
+    npm test
+
 ## Framework
 
 ### Root
