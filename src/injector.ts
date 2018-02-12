@@ -1,6 +1,6 @@
 import {Framework} from './framework';
-import StateBox from './StateBox';
-import Callable from './Callable';
+import StateBox from './stateBox';
+import Callable from './callable';
 
 type InjectLambda<T> = (framework: Framework) => T;
 

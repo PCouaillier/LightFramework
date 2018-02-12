@@ -6,8 +6,8 @@
       "dom.iterable"
     ],
     "noImplicitAny": true,
-    "module": "commonjs",
-    //"module": "amd",
+    //"module": "commonjs",
+    "module": "amd",
     "target": "es2016",
     "sourceMap": true,
     "rootDir": "src",

@@ -1,8 +1,9 @@
 import Injector from './injector';
-import Callable from './Callable';
-import StateBox from './StateBox';
+import Callable from './callable';
+import StateBox from './stateBox';
+import ControllerInformation from './controllerInformation';
+import ControllerOptions from './controllerOptions';
 
-type InjectLambda<T> = (framework: Framework) => T;
 declare global {
 
     type ReduceCallback<T> = (previousValue: T, currentValue: T, currentIndex: number, array: T[]) => T;
@@ -45,13 +46,19 @@ declare global {
 
     interface MyFuncArray<T> {
 
+        // noinspection JSUnusedLocalSymbols
         mapReduce<U, V>(map: MapCallback<T, U>, reduce: ReduceCallback<U>, filter: (arg: U) => boolean, initialVal: V): V;
+        // noinspection JSUnusedLocalSymbols
         mapReduce<U, V>(map: MapCallback<T, U>, reduce: ReduceCallbackWithInit<U, V>, filter: (arg: U) => boolean, initialVal: V): V;
 
+        // noinspection JSUnusedLocalSymbols
         mapReduce<U, V>(map: MapCallback<T, U>, reduce: ReduceCallback<U>, initialVal: V): V;
+        // noinspection JSUnusedLocalSymbols
         mapReduce<U, V>(map: MapCallback<T, U>, reduce: ReduceCallbackWithInit<U, V>, initialVal: V): V;
 
+        // noinspection JSUnusedLocalSymbols
         mapFilter<U>(map: MapCallback<T, U>, filter: (val: U) => boolean): U[];
+        // noinspection JSUnusedLocalSymbols
         filterMap<U>(map: MapCallback<T, U>, filter: (val: T) => boolean): U[];
     }
 
@@ -66,6 +73,7 @@ declare global {
 }
 
 export class Framework {
+    private _name: string|undefined;
     private _injector: Injector;
     private _scopeInjector: Injector;
     private _currentElem: Promise<any>;
@@ -109,6 +117,10 @@ export class Framework {
         );
     }
 
+    forceAddScope<T>(name: string, box: StateBox<T>) {
+        this._scopeInjector.forceAdd(name, box);
+    }
+
     /**
      * call inject in parents recursively. return undefined if not found
      *
@@ -119,12 +131,13 @@ export class Framework {
      */
     _inject<T>(name: string, originScope: Framework): T|undefined|null {
         return Framework.or(
-            Framework.nullMap<Callable<T>, T|undefined>(
+            Framework.nullMap<Callable<T>, T|undefined|null>(
                 this._scopeInjector.get<T>(name),
-                (callable: Callable<T>): T|undefined => {
+                (callable: Callable<T>): T|undefined|null => {
                     let box = (callable as StateBox<T>).copy();
-                    originScope._scopeInjector.forceAdd(name, box);
-                    return box.call(originScope);
+                    box.call(originScope);
+                    originScope.forceAddScope(name, box);
+                    return box.call();
                 }
             ),
             Framework.nullMap<Framework, T|undefined|null>(
@@ -136,11 +149,12 @@ export class Framework {
 
     /**
      * Instantiate a new Framework with an owned scope but linked to his parent.
-     *
      * @returns Framework
+     * @param name
      */
-    newScope(): Framework {
+    newScope(name?: string): Framework {
         let f = new Framework();
+        f._name = name;
         f._injector = this._injector;
         f._scopeInjector = new Injector();
         f._parentScope = this;
@@ -197,14 +211,34 @@ export class Framework {
         element.appendChild(toBindElem);
     }
 
+    /**
+     * test if element is undefined or null
+     *
+     * @param a
+     * @return {boolean}
+     */
     static isUndef (a: any): boolean {
         return a === undefined || a === null;
     }
 
+    /**
+     * if val is defined return val else return orVal
+     *
+     * @param {T} val
+     * @param {U} orVal
+     * @return {T | U}
+     */
     static or<T, U> (val: T, orVal: U): T|U {
         return Framework.isUndef(val) ? orVal : val ;
     }
 
+    /**
+     * if val is defined apply map(val)
+     *
+     * @param {T | null | undefined} val
+     * @param {(a: T) => U} map
+     * @return {U | null | undefined}
+     */
     static nullMap<T, U>(val: T|null|undefined, map: (a: T)=>U): U|null|undefined {
         if (val === undefined)  return undefined;
         if (val === null)       return null;
@@ -352,20 +386,14 @@ export class Framework {
     }
 }
 
+/**
+ * Return the name of the class. Also work with named functions
+ *
+ * @param {Function} classConstructor
+ * @return {string}
+ */
 function getClassName(classConstructor: Function): string {
     return ((/^(class|function) ?([0-9a-zA-Z_]*)/).exec(classConstructor.toString()) as string[])[2];
-}
-
-export interface ControllerInformation {
-    dependencies: string[],
-    controller: Function,
-    view: any
-}
-
-export interface ControllerOptions {
-    dependencies?: string[],
-    name?: string,
-    view?: any
 }
 
 export const Root = new Framework();

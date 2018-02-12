@@ -1,24 +1,23 @@
 const Framework = require('../build/framework').Framework;
-const Root = require('../build/framework').Root;
 const assert = require('chai').assert;
-
-let f = new Framework();
-
-f.addService('hello', () => new Promise(a => {
-    setTimeout(()=>a(Math.random()), 10);
-}));
-
-f.addService('world', () => new Promise(a => {
-    setTimeout(()=>a(Math.random()), 10);
-}));
-
-f.addScoped('scope', () => new Promise(resolve => {
-    setTimeout(()=>resolve(Math.random()), 20);
-}));
 
 describe('Framework', function() {
 
     describe('#inject()', function() {
+        let f = new Framework();
+
+        f.addService('hello', () => new Promise(a => {
+            setTimeout(()=>a(Math.random()), 10);
+        }));
+
+        f.addService('world', () => new Promise(a => {
+            setTimeout(()=>a(Math.random()), 10);
+        }));
+
+        f.addScoped('scope', () => new Promise(resolve => {
+            setTimeout(()=>resolve(Math.random()), 20);
+        }));
+
         it('should inject', function (done) {
             const begin = new Date();
             f.inject('hello')
@@ -43,6 +42,20 @@ describe('Framework', function() {
 
     describe('#cla()', function() {
         it('should instantiate', function(done) {
+            let f = new Framework();
+
+            f.addService('hello', () => new Promise(a => {
+                setTimeout(()=>a(Math.random()), 10);
+            }));
+
+            f.addService('world', () => new Promise(a => {
+                setTimeout(()=>a(Math.random()), 10);
+            }));
+
+            f.addScoped('scope', () => new Promise(resolve => {
+                setTimeout(()=>resolve(Math.random()), 20);
+            }));
+
             f.cla(
                 [
                     'hello',
@@ -66,24 +79,19 @@ describe('Framework', function() {
     });
 
     describe('#classWait()', function() {
-        let f = new Framework();
-
-        f.addConst('aze', 'aze');
-        f.addConst('bbb', 'bbb');
-        f.addConst('11', 11);
-        f.addConst('3', 3);
-        f.addService('ok', () => Promise.resolve({status: "Ok"}));
-        f.addService('waitLong', () => new Promise(resolve => setTimeout(() => resolve(), 400)));
-        f.addService('reject', () => new Promise((_resolve, reject) => setTimeout(() => reject(), 400)));
-        f.addConst('13', 13);
 
         it('should instantiate', function (done) {
-            /**
-             * @param {string} bbb
-             * @param {number} eleven
-             * @param {Promise} ok
-             * @param {number} thirteen
-             */
+
+            let f = new Framework();
+            f.addConst('aze', 'aze');
+            f.addConst('bbb', 'bbb');
+            f.addConst('11', 11);
+            f.addConst('3', 3);
+            f.addService('ok', () => Promise.resolve({status: "Ok"}));
+            f.addService('waitLong', () => new Promise(resolve => setTimeout(() => resolve(), 400)));
+            f.addService('reject', () => new Promise((_resolve, reject) => setTimeout(() => reject(), 400)));
+            f.addConst('13', 13);
+
             f.cla(['BBB', '11', 'ok', '13'], function(bbb, eleven, ok, thirteen) {
                 assert.equal(bbb, 'bbb');
                 assert.equal(eleven, 11);
@@ -96,6 +104,16 @@ describe('Framework', function() {
         });
 
         it('should instantiate and wait', function (done) {
+            let f = new Framework();
+            f.addConst('aze', 'aze');
+            f.addConst('bbb', 'bbb');
+            f.addConst('11', 11);
+            f.addConst('3', 3);
+            f.addService('ok', () => Promise.resolve({status: "Ok"}));
+            f.addService('waitLong', () => new Promise(resolve => setTimeout(() => resolve(), 400)));
+            f.addService('reject', () => new Promise((_resolve, reject) => setTimeout(() => reject(), 400)));
+            f.addConst('13', 13);
+
             const begin = new Date();
             f.classWait(['AZE', 'ok', '3', 'waitLong'],
                 class MyApp {
@@ -115,24 +133,37 @@ describe('Framework', function() {
 
     describe('scopes', function() {
         it ('can handle service', function() {
-            let scope1 = Root.newScope();
+            let root = new Framework();
+            let scope = root.newScope();
+            let scope1 = scope.newScope();
             scope1.addService('rng', () => Math.random());
-            assert.exists(Root.inject('rng'));
+            assert.exists(root.inject('rng'));
             assert.notEqual(scope1.inject('rng'), scope1.inject('rng'));
         });
 
         it ('Has scope cascading top to bottom', function () {
-            let scope =  Root.newScope();
+            let scope = (new Framework()).newScope();
             scope.addScoped('rng', ()=>Math.random());
 
             let scope1 = scope.newScope();
             let scope2 = scope.newScope();
+            assert.equal(scope.inject('rng'), scope.inject('rng'), 'scope value should be saved');
+            assert.equal(scope.inject('rng'), scope1.inject('rng'), 'scope value should be passed to children (N+1)');
+            assert.equal(scope1.inject('rng'), scope2.inject('rng'), 'scope value should be passed to children (N+2)');
+        });
+
+        it ('Has scope cascading top to bottom (discontinuously)', function () {
+            let scope = (new Framework()).newScope('scope0');
+            scope.addScoped('rng', ()=>Math.random());
+            let scope1 = scope.newScope('scope1');
+            let scope2 = scope.newScope('scope2');
+            // @TODO find why scope.inject('rng') has to be called...
             assert.equal(scope1.inject('rng'), scope1.inject('rng'), 'scope value should be saved');
-            assert.equal(scope1.inject('rng'), scope2.inject('rng'), 'scope value should be passed to children');
+            assert.equal(scope1.inject('rng'), scope2.inject('rng'), 'scope value should be passed to children (N+2)');
         });
 
         it ('Has scoped services isolated from bottom to top', function () {
-            let scope =  Root.newScope();
+            let scope =  (new Framework()).newScope().newScope();
             scope.addScoped('rng', ()=>Math.random());
 
             let scope1 = scope.newScope();
