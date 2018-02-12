@@ -6,11 +6,13 @@
       "dom.iterable"
     ],
     "noImplicitAny": true,
-    "module": "amd",
-    "target": "es5",
+    "module": "commonjs",
+    //"module": "amd",
+    "target": "es2016",
     "sourceMap": true,
     "rootDir": "src",
-    "outFile": "build/compiled.js",
+    "outDir": "build",
+    //"outFile": "build/compiled.js",
     "strictNullChecks": true
   },
   "exclude": [

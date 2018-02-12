@@ -1,4 +1,6 @@
-import Injector from 'injector';
+import Injector from './injector';
+import Callable from './Callable';
+import StateBox from './StateBox';
 
 type InjectLambda<T> = (framework: Framework) => T;
 declare global {
@@ -42,6 +44,7 @@ declare global {
     }
 
     interface MyFuncArray<T> {
+
         mapReduce<U, V>(map: MapCallback<T, U>, reduce: ReduceCallback<U>, filter: (arg: U) => boolean, initialVal: V): V;
         mapReduce<U, V>(map: MapCallback<T, U>, reduce: ReduceCallbackWithInit<U, V>, filter: (arg: U) => boolean, initialVal: V): V;
 
@@ -60,9 +63,6 @@ declare global {
 
     interface NodeList extends MyFuncArray<Node>, ExtendFromArray<Node>
         {  }
-
-    interface NodeListOf<TNode extends Node> extends MyFuncArray<TNode>, ExtendFromArray<TNode>
-        {  }
 }
 
 export class Framework {
@@ -70,14 +70,14 @@ export class Framework {
     private _scopeInjector: Injector;
     private _currentElem: Promise<any>;
     private _controllers: {[name: string]: ControllerInformation};
-    private _parentScope: Framework|null;
+    private _parentScope: Framework|undefined;
 
     constructor() {
         this._injector = new Injector();
-        this._scopeInjector = this._injector;
+        this._scopeInjector = new Injector();
         this._currentElem = Promise.resolve();
         this._controllers = {};
-        this._parentScope = null;
+        this._parentScope = undefined;
     }
 
     get controllers(): {[name: string]: ControllerInformation} {
@@ -99,17 +99,38 @@ export class Framework {
     inject<T>(name: string): T|null|undefined {
         return Framework.or(
             Framework.or(
-                Framework.nullMap<InjectLambda<T>, T>(this._scopeInjector.inject<T>(name), (injectLambda: InjectLambda<T>) => injectLambda(this)),
-                Framework.nullMap<Framework, T|null|undefined>(this._parentScope, (framework: Framework)=>framework._inject<T>(name, this))
+                this._scopeInjector.inject<T>(name, this),
+                Framework.nullMap<Framework, T|null|undefined>(
+                    this._parentScope,
+                    (framework: Framework) => framework._inject<T>(name, this)
+                )
             ),
-            this._injector.inject<T>(name)(this)
+            this._injector.inject<T>(name, this)
         );
     }
 
-    _inject<T>(name: string, originScope: Framework): T|null|undefined {
+    /**
+     * call inject in parents recursively. return undefined if not found
+     *
+     * @param {string} name
+     * @param {Framework} originScope
+     * @return {T | null | undefined}
+     * @private
+     */
+    _inject<T>(name: string, originScope: Framework): T|undefined|null {
         return Framework.or(
-            Framework.nullMap(Framework.nullMap(this._scopeInjector, a=>a.inject(name)), (injectLambda: InjectLambda<T>)=>injectLambda(originScope)),
-            Framework.nullMap(Framework.nullMap(this._parentScope, a=>a._inject(name, originScope)), (injectLambda: InjectLambda<T>)=>injectLambda(originScope))
+            Framework.nullMap<Callable<T>, T|undefined>(
+                this._scopeInjector.get<T>(name),
+                (callable: Callable<T>): T|undefined => {
+                    let box = (callable as StateBox<T>).copy();
+                    originScope._scopeInjector.forceAdd(name, box);
+                    return box.call(originScope);
+                }
+            ),
+            Framework.nullMap<Framework, T|undefined|null>(
+                this._parentScope,
+                (framework: Framework) => framework._inject<T>(name, originScope)
+            ),
         );
     }
 

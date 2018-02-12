@@ -1,31 +1,39 @@
-import {Framework} from "./framework";
+import {Framework} from './framework';
+import StateBox from './StateBox';
+import Callable from './Callable';
 
 type InjectLambda<T> = (framework: Framework) => T;
 
 export default class Injector {
-    private injector: {[key: string]: InjectLambda<any>};
+    private _injector: {[key: string]: Callable<any>};
 
     constructor() {
-        this.injector = {};
+        this._injector = {};
     }
 
     addService<T>(name: string, callback: InjectLambda<T>) {
-        this.injector[name] = callback;
+        this._injector[name] =  {call: callback};
     }
 
     addScoped<T>(name: string, callback: InjectLambda<T>) {
-        this.injector[name] = (env) => {
-            const a = callback(env);
-            this.injector[name] = () => a;
-            return a;
-        };
+        this._injector[name] = new StateBox(callback);
     }
 
     addConst<T>(name: string, value: T) {
-        this.injector[name.toUpperCase()] = () => value;
+        this._injector[name.toUpperCase()] = {call:() => value};
     }
 
-    inject<T>(name: string): InjectLambda<T> {
-        return this.injector[name] as InjectLambda<T>;
+    inject<T>(name: string, env: Framework): T|undefined {
+        let box = this._injector[name];
+        if (!box) return undefined;
+        return box.call(env);
+    }
+
+    get<T>(name: string): Callable<T> {
+        return this._injector[name];
+    }
+
+    forceAdd<T>(name: string, stateBox: StateBox<T>) {
+        this._injector[name] = stateBox;
     }
 }
