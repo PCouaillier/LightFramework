@@ -19,6 +19,7 @@ Get the file `compiled.js` (require `amd` or `dependencies-before.js` and `depen
 ## Framework
 
 ### Root
+
 The Framework dependency create by default an instance called Root which can contain all constant dependencies.
 
 Root.addConst('MY_CONST', 'MY_VALUE');

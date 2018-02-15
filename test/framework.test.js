@@ -132,6 +132,15 @@ describe('Framework', function() {
     });
 
     describe('scopes', function() {
+
+        it ('create a hierarchy', function () {
+            let scope = (new Framework()).newScope('0');
+            let scope1 = scope.newScope('1');
+            assert.equal(scope1._parentScope._name, '0', 'first child');
+            let scope2 = scope1.newScope('2');
+            assert.equal(scope2._parentScope._name, '1', 'grand child');
+        });
+
         it ('can handle service', function() {
             let root = new Framework();
             let scope = root.newScope();
@@ -142,11 +151,11 @@ describe('Framework', function() {
         });
 
         it ('Has scope cascading top to bottom', function () {
-            let scope = (new Framework()).newScope();
+            let scope = (new Framework()).newScope('scope0');
             scope.addScoped('rng', ()=>Math.random());
 
-            let scope1 = scope.newScope();
-            let scope2 = scope.newScope();
+            let scope1 = scope.newScope('scope1');
+            let scope2 = scope1.newScope('scope2');
             assert.equal(scope.inject('rng'), scope.inject('rng'), 'scope value should be saved');
             assert.equal(scope.inject('rng'), scope1.inject('rng'), 'scope value should be passed to children (N+1)');
             assert.equal(scope1.inject('rng'), scope2.inject('rng'), 'scope value should be passed to children (N+2)');
@@ -156,8 +165,7 @@ describe('Framework', function() {
             let scope = (new Framework()).newScope('scope0');
             scope.addScoped('rng', ()=>Math.random());
             let scope1 = scope.newScope('scope1');
-            let scope2 = scope.newScope('scope2');
-            // @TODO find why scope.inject('rng') has to be called...
+            let scope2 = scope1.newScope('scope2');
             assert.equal(scope1.inject('rng'), scope1.inject('rng'), 'scope value should be saved');
             assert.equal(scope1.inject('rng'), scope2.inject('rng'), 'scope value should be passed to children (N+2)');
         });

@@ -8,19 +8,21 @@ interface Callable<T> {
 
 export default class StateBox<T> implements Callable<T> {
     private _callback : InjectLambda<T>;
-    public value : undefined|T;
+    public _value : undefined|T;
 
-    constructor(callback: InjectLambda<T>, value?: T) {
+    constructor(callback: InjectLambda<T>) {
         this._callback = callback;
-        this.value = value;
+        this._value = undefined;
     }
     public call(framework?: Framework): T {
-        if (this.value === undefined) {
-            this.value = this._callback(framework as Framework);
+        if (this._value === undefined) {
+            this._value = this._callback(framework as Framework);
         }
-        return this.value;
+        return this._value;
     }
     public copy(): StateBox<T> {
-        return new StateBox<T>(this._callback, this.value);
+        let sb = new StateBox<T>(this._callback);
+        sb._value = this._value;
+        return sb;
     }
 }

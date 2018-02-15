@@ -1,5 +1,4 @@
 import Injector from './injector';
-import Callable from './callable';
 import StateBox from './stateBox';
 import ControllerInformation from './controllerInformation';
 import ControllerOptions from './controllerOptions';
@@ -104,53 +103,48 @@ export class Framework {
         this._injector.addConst(name, constValue);
     }
 
-    inject<T>(name: string): T|null|undefined {
-        return Framework.or(
-            Framework.or(
-                this._scopeInjector.inject<T>(name, this),
-                Framework.nullMap<Framework, T|null|undefined>(
-                    this._parentScope,
-                    (framework: Framework) => framework._inject<T>(name, this)
-                )
-            ),
-            this._injector.inject<T>(name, this)
-        );
-    }
+    _getInjector<T>(name: string): StateBox<T>|undefined {
+        console.log(this._name, name);
+        let res = this._scopeInjector.get(name) as StateBox<T>|undefined;
+        if (res !== undefined) return res;
 
-    forceAddScope<T>(name: string, box: StateBox<T>) {
-        this._scopeInjector.forceAdd(name, box);
+        if (this._parentScope === undefined) return undefined;
+        return this._parentScope._getInjector(name);
     }
 
     /**
-     * call inject in parents recursively. return undefined if not found
+     * Instantiate the named element form all known dependencies
      *
      * @param {string} name
-     * @param {Framework} originScope
      * @return {T | null | undefined}
+     */
+    inject<T>(name: string): T|null|undefined {
+        let res = this._scopeInjector.get<T>(name);
+        if (res !== undefined) return res.call(this);
+        if (this._parentScope !== undefined) {
+            let stateCall = this._parentScope._getInjector<T>(name);
+            if (stateCall !== undefined) {
+                this._forceAddScope(name, stateCall.copy());
+                return this.inject(name);
+            }
+        }
+        return this._injector.inject(name, this);
+    }
+
+    /**
+     * force add new dependency. Used for instantiation hierarchy
+     * @param {string} name
+     * @param {StateBox<T>} box
      * @private
      */
-    _inject<T>(name: string, originScope: Framework): T|undefined|null {
-        return Framework.or(
-            Framework.nullMap<Callable<T>, T|undefined|null>(
-                this._scopeInjector.get<T>(name),
-                (callable: Callable<T>): T|undefined|null => {
-                    let box = (callable as StateBox<T>).copy();
-                    box.call(originScope);
-                    originScope.forceAddScope(name, box);
-                    return box.call();
-                }
-            ),
-            Framework.nullMap<Framework, T|undefined|null>(
-                this._parentScope,
-                (framework: Framework) => framework._inject<T>(name, originScope)
-            ),
-        );
+    _forceAddScope<T>(name: string, box: StateBox<T>) {
+        this._scopeInjector.forceAdd(name, box);
     }
 
     /**
      * Instantiate a new Framework with an owned scope but linked to his parent.
      * @returns Framework
-     * @param name
+     * @param name scope identifier for debug purpose
      */
     newScope(name?: string): Framework {
         let f = new Framework();

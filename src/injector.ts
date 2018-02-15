@@ -26,10 +26,10 @@ export default class Injector {
     inject<T>(name: string, env: Framework): T|undefined {
         let box = this._injector[name];
         if (!box) return undefined;
-        return box.call(env);
+        return this._injector[name].call(env);
     }
 
-    get<T>(name: string): Callable<T> {
+    get<T>(name: string): Callable<T>|undefined {
         return this._injector[name];
     }
 
