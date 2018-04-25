@@ -73,10 +73,13 @@ declare global {
 
 export class Framework {
     private _name: string|undefined;
+    // noinspection TypeScriptFieldCanBeMadeReadonly
     private _injector: Injector;
     private _scopeInjector: Injector;
     private _currentElem: Promise<any>;
+    // noinspection TypeScriptFieldCanBeMadeReadonly
     private _controllers: {[name: string]: ControllerInformation};
+    // noinspection TypeScriptFieldCanBeMadeReadonly
     private _parentScope: Framework|undefined;
 
     constructor() {
@@ -104,7 +107,6 @@ export class Framework {
     }
 
     _getInjector<T>(name: string): StateBox<T>|undefined {
-        console.log(this._name, name);
         let res = this._scopeInjector.get(name) as StateBox<T>|undefined;
         if (res !== undefined) return res;
 

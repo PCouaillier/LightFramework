@@ -9,8 +9,11 @@
     }
 })();
 
-let dependencies = [];
-let doneDependencies = {'require': null, 'exports': {}};
+/** @type {{dependencies: {name: string, dependencies: string[], func: function}[], doneDependencies: {require: null, exports: {}}} */
+let amd = {
+    dependencies: [],
+    doneDependencies: {'require': null, 'exports': {}},
+};
 
 Array.prototype.mapReduce = function (map, reduce, filter, initialVal) {
 //                          function (map, reduce, initialVal) {
@@ -29,29 +32,37 @@ Array.prototype.mapReduce = function (map, reduce, filter, initialVal) {
         initialVal
     );
 };
+
 (() => {
     Array.prototype.mapFilter = function (map, filter) {
         return this.mapReduce(map, (acc, a) => acc.push(a), filter, []);
     };
 
-    applyArrayFunc = (aClass) => {
+    let applyArrayFunc = (aClass) => {
         aClass.prototype.map = Array.prototype.map;
         aClass.prototype.filter = Array.prototype.filter;
         aClass.prototype.reduce = Array.prototype.reduce;
         aClass.prototype.mapFilter = Array.prototype.mapFilter;
         aClass.prototype.includes = Array.prototype.includes;
     };
-
-    applyArrayFunc(HTMLCollection);
-    applyArrayFunc(NodeList);
+    if (HTMLCollection) applyArrayFunc(HTMLCollection);
+    if (NodeList) applyArrayFunc(NodeList);
 })();
 
 let define = (name, dependencies, func) => {
-    if (dependencies.every(a => doneDependencies[a] !== undefined)) {
-        func.apply(this, dependencies.map(a => doneDependencies[a]));
-        doneDependencies[name] = doneDependencies.exports;
-        doneDependencies.exports = {};
+    if (dependencies.every(a => amd.doneDependencies[a] !== undefined)) {
+        let exports = {};
+        func.apply(func, [undefined, exports].concat(dependencies.map(a => amd.doneDependencies[a])));
+        amd.doneDependencies[name] = exports;
     } else {
-        dependencies.push({name: name, dependencies: dependencies, func: func});
+        amd.dependencies.push({name: name, dependencies: dependencies, func: func});
+    }
+    let dependency = amd.dependencies.find(a => a.dependencies.every(a => amd.doneDependencies[a] !== undefined));
+    while ((dependency !== undefined)) {
+        amd.dependencies.splice(amd.dependencies.findIndex(a => a.name === dependency.name), 1);
+        let exports = {};
+        dependency.func.apply(this, [undefined, exports].concat(dependency.dependencies.map(a => amd.doneDependencies[a])));
+        amd.doneDependencies[dependency.name] = exports;
+        dependency = amd.dependencies.find(a => a.dependencies.every(a => amd.doneDependencies[a] !== undefined));
     }
 };
