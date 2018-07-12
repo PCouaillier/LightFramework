@@ -6,36 +6,28 @@ describe('Framework', function() {
     describe('#inject()', function() {
         let f = new Framework();
 
-        f.addService('hello', () => new Promise(a => {
-            setTimeout(()=>a(Math.random()), 10);
-        }));
-
-        f.addService('world', () => new Promise(a => {
-            setTimeout(()=>a(Math.random()), 10);
+        f.addService('hello', () => new Promise(resolve => {
+            setTimeout(() => resolve(Math.random()), 40);
         }));
 
         f.addScoped('scope', () => new Promise(resolve => {
-            setTimeout(()=>resolve(Math.random()), 20);
+            setTimeout(() => resolve(Math.random()), 40);
         }));
 
-        it('should inject', function (done) {
+        it('should inject', function () {
             const begin = new Date();
-            f.inject('hello')
+            return f.inject('hello')
                 .then(() => {
                     let duration = new Date() - begin;
-                    assert.isBelow(duration, 14, 'exec time under 14');
-                    assert.isAtMost(10, duration, 'exec time over 10');
-                    done();
+                    assert.isAtLeast(duration, 40, 'exec time over 40');
                 });
         });
-        it('should instantiate', function(done) {
+        it('should instantiate', function() {
             const begin = new Date();
-            f.inject('scope')
+            return f.inject('scope')
                 .then(()=> {
                     let duration = new Date() - begin;
-                    assert.isBelow(duration, 24, 'exec time under 24');
-                    assert.isAtMost(20, duration, 'exec time over 20');
-                    done();
+                    assert.isAtLeast(duration, 40, 'exec time over 40');
                 });
         });
     });
@@ -43,17 +35,17 @@ describe('Framework', function() {
     describe('#cla()', function() {
         it('should instantiate', function(done) {
             let f = new Framework();
-
-            f.addService('hello', () => new Promise(a => {
-                setTimeout(()=>a(Math.random()), 10);
+            const begin = new Date();
+            f.addService('hello', () => new Promise(resolve => {
+                setTimeout(() => resolve(Math.random()), 25);
             }));
 
-            f.addService('world', () => new Promise(a => {
-                setTimeout(()=>a(Math.random()), 10);
+            f.addService('world', () => new Promise(resolve => {
+                setTimeout(() => resolve(Math.random()), 25);
             }));
 
             f.addScoped('scope', () => new Promise(resolve => {
-                setTimeout(()=>resolve(Math.random()), 20);
+                setTimeout(() => resolve(Math.random()), 80);
             }));
 
             f.cla(
@@ -68,9 +60,12 @@ describe('Framework', function() {
                             b
                         ])
                         .then(res => {
+                            let delta = new Date() - begin;
                             assert.isDefined(res[0]);
                             assert.isDefined(res[1]);
                             assert.notEqual(res[0], res[1]);
+                            assert.isAtLeast(delta, 25);
+                            assert.isAtMost(delta, 80);
                             done();
                         });
                 }
@@ -88,8 +83,8 @@ describe('Framework', function() {
             f.addConst('11', 11);
             f.addConst('3', 3);
             f.addService('ok', () => Promise.resolve({status: "Ok"}));
-            f.addService('waitLong', () => new Promise(resolve => setTimeout(() => resolve(), 400)));
-            f.addService('reject', () => new Promise((_resolve, reject) => setTimeout(() => reject(), 400)));
+            f.addService('waitLong', () => new Promise(resolve => setTimeout(() => resolve(), 40)));
+            f.addService('reject', () => new Promise((_resolve, reject) => setTimeout(() => reject(), 40)));
             f.addConst('13', 13);
 
             f.cla(['BBB', '11', 'ok', '13'], function(bbb, eleven, ok, thirteen) {
@@ -103,28 +98,22 @@ describe('Framework', function() {
             });
         });
 
-        it('should instantiate and wait', function (done) {
+        it('should instantiate and wait', function () {
             let f = new Framework();
-            f.addConst('aze', 'aze');
-            f.addConst('bbb', 'bbb');
-            f.addConst('11', 11);
+            f.addConst('AZE', 'aze');
             f.addConst('3', 3);
             f.addService('ok', () => Promise.resolve({status: "Ok"}));
-            f.addService('waitLong', () => new Promise(resolve => setTimeout(() => resolve(), 400)));
-            f.addService('reject', () => new Promise((_resolve, reject) => setTimeout(() => reject(), 400)));
-            f.addConst('13', 13);
+            f.addService('waitLong', () => new Promise(resolve => setTimeout(() => resolve(true), 40)));
 
             const begin = new Date();
-            f.classWait(['AZE', 'ok', '3', 'waitLong'],
+            return f.classWait(['AZE', 'ok', '3', 'waitLong'],
                 class MyApp {
                     constructor(str, ok, tree) {
                         let duration = new Date() - begin;
-                        assert.isBelow(duration, 410, 'exec time under 410');
-                        assert.isAtMost(400, duration, 'exec time over 400');
+                        assert.isAtLeast(duration, 40, 'exec time under 40');
                         assert.equal(str, 'aze');
                         assert.equal(ok.status, 'Ok');
                         assert.equal(tree, 3);
-                        done();
                     }
                 }
             );

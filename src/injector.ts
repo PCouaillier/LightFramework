@@ -20,7 +20,7 @@ export default class Injector {
     }
 
     addConst<T>(name: string, value: T) {
-        this._injector[name.toUpperCase()] = {call:() => value};
+        this._injector[name.toUpperCase()] = { call:() => value };
     }
 
     inject<T>(name: string, env: Framework): T|undefined {

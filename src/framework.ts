@@ -104,7 +104,6 @@ export class Framework {
     }
 
     _getInjector<T>(name: string): StateBox<T>|undefined {
-        console.log(this._name, name);
         let res = this._scopeInjector.get(name) as StateBox<T>|undefined;
         if (res !== undefined) return res;
 
@@ -160,9 +159,9 @@ export class Framework {
      * used to instantiate a new class and resolve its dependencies
      * @param injects
      * @param func
-     * @returns {*}
+     * @returns {Promise<T>}
      */
-    cla(injects: string[], func: Function): Promise<any> {
+    cla<T>(injects: string[], func: Function): Promise<T> {
         this._currentElem = Promise.resolve(Reflect.construct(func, injects.map(a => this.inject(a))));
         return this._currentElem;
     }
@@ -185,7 +184,7 @@ export class Framework {
             return elem;
         });
 
-        this._currentElem = Promise.all(promises)
+        let cla = Promise.all(promises)
             .then(res => {
                 for (let i = res.length - 1; 0 <= i; i--) {
                     injects[promisesIds[i]] = res[i];
@@ -193,7 +192,7 @@ export class Framework {
                 return Promise.resolve(Reflect.construct(func, injects));
             });
 
-        return this._currentElem;
+        return cla;
     }
 
     static setView(element: HTMLElement, toBindElem: Node): any {
