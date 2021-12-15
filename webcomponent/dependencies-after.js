@@ -1,3 +1,3 @@
-define(Math.random(), ['framework'], function (_require, _exports, framework) {
+define(String(Math.random()), ['framework'], function (_require, _exports, framework) {
     framework.Root.initControllers();
 });

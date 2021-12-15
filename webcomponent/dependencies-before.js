@@ -9,12 +9,6 @@
     }
 })();
 
-/** @type {{dependencies: {name: string, dependencies: string[], func: function}[], doneDependencies: {require: null, exports: {}}} */
-let amd = {
-    dependencies: [],
-    doneDependencies: {'require': null, 'exports': {}},
-};
-
 Array.prototype.mapReduce = function (map, reduce, filter, initialVal) {
 //                          function (map, reduce, initialVal) {
     if (initialVal === undefined) {
@@ -49,20 +43,32 @@ Array.prototype.mapReduce = function (map, reduce, filter, initialVal) {
     if (NodeList) applyArrayFunc(NodeList);
 })();
 
-let define = (name, dependencies, func) => {
-    if (dependencies.every(a => amd.doneDependencies[a] !== undefined)) {
-        let exports = {};
-        func.apply(func, [undefined, exports].concat(dependencies.map(a => amd.doneDependencies[a])));
-        amd.doneDependencies[name] = exports;
-    } else {
-        amd.dependencies.push({name: name, dependencies: dependencies, func: func});
-    }
-    let dependency = amd.dependencies.find(a => a.dependencies.every(a => amd.doneDependencies[a] !== undefined));
-    while ((dependency !== undefined)) {
-        amd.dependencies.splice(amd.dependencies.findIndex(a => a.name === dependency.name), 1);
-        let exports = {};
-        dependency.func.apply(this, [undefined, exports].concat(dependency.dependencies.map(a => amd.doneDependencies[a])));
-        amd.doneDependencies[dependency.name] = exports;
-        dependency = amd.dependencies.find(a => a.dependencies.every(a => amd.doneDependencies[a] !== undefined));
-    }
-};
+const define = (() => {
+    /** @type {{dependencies: {name: string, dependencies: string[], func: function}[], doneDependencies: {require: null, exports: {}}} */
+    const amd = {
+        dependencies: [],
+        doneDependencies: {'require': null, 'exports': {}},
+    };
+
+    const define = (name, dependencies, func) => {
+        if (dependencies.every(a => amd.doneDependencies[a] !== undefined)) {
+            let exports = {};
+            func.apply(func, [undefined, exports].concat(dependencies.map(a => amd.doneDependencies[a])));
+            amd.doneDependencies[name] = exports;
+        } else {
+            amd.dependencies.push({ name, dependencies, func });
+        }
+        while (true) {
+            const dependencyIndex = amd.dependencies.findIndex(a => a.dependencies.every(a => amd.doneDependencies[a] !== undefined));
+            if (dependencyIndex === -1) {
+                break;
+            }
+            const dependency = amd.dependencies.splice(dependencyIndex, 1)[0];
+            const exports = {};
+            dependency.func.apply(this, [undefined, exports].concat(dependency.dependencies.map(a => amd.doneDependencies[a])));
+            amd.doneDependencies[dependency.name] = exports;
+        }
+    };
+
+    return define;
+})();
